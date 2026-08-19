@@ -27,6 +27,16 @@ If the game runs on the same device as SmartCV you do not need to do anything el
 ### Step 2.2: OBS Setup
 SmartCV reads the game from an OBS video source over OBS WebSocket. **Enable and configure OBS WebSocket first.** Open `config.ini`, set `source_title` to the name of your OBS source, and fill in the rest of the `[obs]` section. `width` and `height` are the resolution OBS sends; you can lower it to save CPU as long as it stays 16:9, though detection gets less reliable the lower you go.
 
+### Step 2.3: Replaying a video file
+Set `capture_mode = video`, point `[video] path` at a recording, and launch with `python vod.py` instead of the normal script. This runs the real detection loop and websocket server against the file, which is the easy way to test a client integration without playing a match:
+
+```bash
+python vod.py path/to/vod.mp4
+python vod.py path/to/vod.mp4 --start 400 --speed 4
+```
+
+`--speed` only changes wall-clock pacing; the video still advances one `refresh_rate` per poll, so the detectors see the same cadence they would live.
+
 ### Broadcast overlays
 If your stream layout draws a scoreboard over the game, declare it so the calibration check can guarantee no probe sits underneath it:
 
@@ -79,7 +89,11 @@ The only OCR in the project. When the versus screen appears, the two nameplates 
 
 ## Development
 
-`dev/validate_vod.py` replays a recording at the real poll interval and prints every state change, which is how the detectors were calibrated and how regressions get caught:
+There are two ways to run footage through this, and they answer different questions.
+
+`vod.py` is the product: real detection loop, real websocket server, frames from a file. Use it to check what a client receives.
+
+`dev/validate_vod.py` is the calibration and regression tool. It drives the detectors directly, with no server or sleeping, and prints every state change:
 
 ```bash
 python dev/validate_vod.py path/to/vod.mp4 --start 400 --end 900

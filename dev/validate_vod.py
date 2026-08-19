@@ -18,7 +18,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 if not os.path.exists("config.ini"):
-    shutil.copy(os.path.join("core", "config.ini.example"), "config.ini")
+    shutil.copy("config.ini.example", "config.ini")
 
 import cv2  # noqa: E402
 from PIL import Image  # noqa: E402

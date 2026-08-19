@@ -50,19 +50,10 @@ jobs:
       run: pyinstaller core\main.spec --clean --noconfirm --log-level=DEBUG
 
     - name: Copy config file
+      # The repo root example, not core's: it carries executable_title,
+      # ignore_region and the [video] section already set for this game.
       run: |
-        copy core\config.ini.example dist\smartcv\config.ini
-    - name: Override default config.ini settings for SmartCV-Avatar
-      shell: pwsh
-      run: |
-        $path = "dist\smartcv\config.ini"
-        (Get-Content $path) | ForEach-Object {
-          if ($_ -match '^\s*executable_title\s*=') {
-            "executable_title = Avatar Legends"
-          } else {
-            $_
-          }
-        } | Set-Content $path
+        copy config.ini.example dist\smartcv\config.ini
     - name: Create zip file
       run: |
         cd dist\smartcv
