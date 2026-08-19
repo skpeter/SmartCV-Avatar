@@ -1,0 +1,18 @@
+{
+    "state": "in_game",
+    "round": 3,
+    "players": [
+        {
+            "name": null,
+            "character": "Toph",
+            "games": 1,
+            "rounds": 1
+        },
+        {
+            "name": null,
+            "character": "Kyoshi",
+            "games": 1,
+            "rounds": 1
+        }
+    ]
+}
