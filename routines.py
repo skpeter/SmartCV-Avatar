@@ -126,6 +126,10 @@ P2_NAME_RECT = (1330, 792, 440, 62)
 # in a read. PING sits above the bar and is outside these rects.
 P1_TAG_RECT = (40, 85, 520, 50)
 P2_TAG_RECT = (1360, 85, 520, 50)
+# Offline / local matches leave the top bars blank. A few empty reads is
+# enough to give up for the set; tags never gate versus or character OCR.
+TAG_OCR_MAX_TRIES = 3
+_tag_ocr_attempts = 0
 
 # The nameplate font is stylised and sits over animated art, so a single
 # read is not trustworthy: ZUKO has come back as ALKLO, ALKO, LUKO and
@@ -247,7 +251,7 @@ def _reset_game(payload):
 
 
 def _reset_set(payload):
-    global _game_awarded
+    global _game_awarded, _tag_ocr_attempts
     payload["round"] = 0
     for player in payload["players"]:
         player["games"] = 0
@@ -255,6 +259,7 @@ def _reset_set(payload):
         player["character"] = None
         player["name"] = None
     _char_scores[0], _char_scores[1] = 0.0, 0.0
+    _tag_ocr_attempts = 0
     _game_awarded = False
 
 
@@ -275,8 +280,9 @@ def detect_versus_screen(payload, img, scale_x, scale_y):
         core.print_with_time("- Versus screen detected (new set)")
         _reset_set(payload)
         _set_state(payload, "loading")
-    detect_player_tags(payload, img, scale_x, scale_y)
+    # Characters first: tags are best-effort and blank offline.
     detect_characters(payload, img, scale_x, scale_y)
+    detect_player_tags(payload, img, scale_x, scale_y)
 
 
 def _scaled_rect(rect, scale_x, scale_y):
@@ -289,18 +295,23 @@ def _scaled_rect(rect, scale_x, scale_y):
 
 
 def detect_player_tags(payload, img, scale_x, scale_y):
-    """OCR the versus top-bar gamertags into players[i].name.
+    """Best-effort OCR of versus top-bar gamertags into players[i].name.
 
-    Free-form Steam names, no roster match. First clean read per side wins;
-    versus only lasts a few seconds so there is no retry budget beyond that.
+    Online Steam tags only. Offline / local matches leave the bars blank —
+    missing names are fine and never block versus or character detection.
+    First clean read per side wins; give up after TAG_OCR_MAX_TRIES empties.
     """
+    global _tag_ocr_attempts
     if not ocr_enabled:
+        return
+    if _tag_ocr_attempts >= TAG_OCR_MAX_TRIES:
         return
     players = payload["players"]
     if players[0]["name"] and players[1]["name"]:
         return
     if not _probes_match(img, VS_PROBES, VS_DEV, scale_x, scale_y):
         return
+    _tag_ocr_attempts += 1
     for i, rect in enumerate((P1_TAG_RECT, P2_TAG_RECT)):
         if players[i]["name"]:
             continue
@@ -446,7 +457,7 @@ states_to_functions = {
         detect_round_start,
     ],
     "character_select": [detect_versus_screen, detect_round_start],
-    "loading": [detect_player_tags, detect_characters, detect_round_start],
+    "loading": [detect_characters, detect_player_tags, detect_round_start],
     "in_game": [
         detect_rounds,
         detect_round_start,
