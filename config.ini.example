@@ -13,8 +13,6 @@ executable_title = Avatar Legends
 refresh_rate = 0.5
 ;debug_mode = Outputs some more data in order to catch errors. Also creates snapshot images of data being read. Disabled by default, not recommended for long usage.
 debug_mode = false
-;ignore_region = Region of the capture covered by a broadcast overlay, as x0,y0,x1,y1 at 1080p. No probe may sit inside it; dev/validate_vod.py asserts this. Default is the ICFC tournament scoreboard.
-ignore_region = 274,0,1647,60
 
 [video]
 ;Only used by vod.py, which replays a recording through the real detection loop and websocket server.
