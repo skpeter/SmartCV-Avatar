@@ -41,15 +41,6 @@ _round_start_lock_until = 0.0
 _game_awarded = False
 _marker_streak = [None, 0]
 
-# Broadcast overlays sit on top of the capture. Anything inside this box is
-# off limits for probes; validate_vod asserts it. Default is the ICFC
-# tournament scoreboard.
-IGNORE_REGION = tuple(
-    int(v) for v in config.get(
-        "settings", "ignore_region", fallback="274,0,1647,60"
-    ).split(",")
-)
-
 # Two slots flank the timer plate, symmetric about x=959: P1 left, P2 right.
 # Upper slot is round 1, lower is round 2. They latch on for the rest of the
 # game. P1 lights saturated orange, P2 saturated blue.
@@ -128,6 +119,13 @@ RES_DEV = 0.10
 # support, which does not affect reported data.
 P1_NAME_RECT = (150, 792, 440, 62)
 P2_NAME_RECT = (1330, 792, 440, 62)
+
+# Versus top-bar player tags. White text on the maroon (P1) / navy (P2)
+# bands; a controller icon sits left of P1 and right of P2. Crops stay
+# inside the coloured bands so the stage title in the centre never lands
+# in a read. PING sits above the bar and is outside these rects.
+P1_TAG_RECT = (40, 85, 520, 50)
+P2_TAG_RECT = (1360, 85, 520, 50)
 
 # The nameplate font is stylised and sits over animated art, so a single
 # read is not trustworthy: ZUKO has come back as ALKLO, ALKO, LUKO and
@@ -255,6 +253,7 @@ def _reset_set(payload):
         player["games"] = 0
         player["rounds"] = 0
         player["character"] = None
+        player["name"] = None
     _char_scores[0], _char_scores[1] = 0.0, 0.0
     _game_awarded = False
 
@@ -266,8 +265,6 @@ def detect_character_select_screen(payload, img, scale_x, scale_y):
         return
     core.print_with_time("- Character select screen detected")
     _reset_set(payload)
-    for player in payload["players"]:
-        player["name"] = None
     _set_state(payload, "character_select")
 
 
@@ -278,14 +275,53 @@ def detect_versus_screen(payload, img, scale_x, scale_y):
         core.print_with_time("- Versus screen detected (new set)")
         _reset_set(payload)
         _set_state(payload, "loading")
+    detect_player_tags(payload, img, scale_x, scale_y)
     detect_characters(payload, img, scale_x, scale_y)
 
 
-def detect_characters(payload, img, scale_x, scale_y):
-    """One OCR pass per set, on the versus nameplates.
+def _scaled_rect(rect, scale_x, scale_y):
+    return (
+        int(rect[0] * scale_x),
+        int(rect[1] * scale_y),
+        int(rect[2] * scale_x),
+        int(rect[3] * scale_y),
+    )
 
-    Everything else in this file is pixel work; this is the only text read,
-    and it stops as soon as both names land.
+
+def detect_player_tags(payload, img, scale_x, scale_y):
+    """OCR the versus top-bar gamertags into players[i].name.
+
+    Free-form Steam names, no roster match. First clean read per side wins;
+    versus only lasts a few seconds so there is no retry budget beyond that.
+    """
+    if not ocr_enabled:
+        return
+    players = payload["players"]
+    if players[0]["name"] and players[1]["name"]:
+        return
+    if not _probes_match(img, VS_PROBES, VS_DEV, scale_x, scale_y):
+        return
+    for i, rect in enumerate((P1_TAG_RECT, P2_TAG_RECT)):
+        if players[i]["name"]:
+            continue
+        result = core.read_text(img, _scaled_rect(rect, scale_x, scale_y), contrast=2)
+        if not result:
+            continue
+        tag = " ".join(result).strip()
+        if _debug():
+            print(f"Player tag {i + 1} OCR:", result, "->", tag)
+        # PING sits above the bar; reject it if a crop ever catches it.
+        if not tag or tag.upper().startswith("PING"):
+            continue
+        players[i]["name"] = tag
+        core.print_with_time(f"Player {i + 1} tag:", tag)
+
+
+def detect_characters(payload, img, scale_x, scale_y):
+    """OCR the versus nameplates into players[i].character.
+
+    Pixel work covers everything else; text reads stop once both characters
+    lock. Nameplate font is noisy, so best-of-frames scoring is required.
     """
     if not ocr_enabled:
         return
@@ -296,13 +332,7 @@ def detect_characters(payload, img, scale_x, scale_y):
     for i, rect in enumerate((P1_NAME_RECT, P2_NAME_RECT)):
         if _char_scores[i] >= CHAR_LOCK_SCORE:
             continue
-        x, y, w, h = (
-            int(rect[0] * scale_x),
-            int(rect[1] * scale_y),
-            int(rect[2] * scale_x),
-            int(rect[3] * scale_y),
-        )
-        result = core.read_text(img, (x, y, w, h), contrast=2)
+        result = core.read_text(img, _scaled_rect(rect, scale_x, scale_y), contrast=2)
         if not result:
             continue
         match, score = findBestMatch(" ".join(result), avatar.characters)
@@ -416,7 +446,7 @@ states_to_functions = {
         detect_round_start,
     ],
     "character_select": [detect_versus_screen, detect_round_start],
-    "loading": [detect_characters, detect_round_start],
+    "loading": [detect_player_tags, detect_characters, detect_round_start],
     "in_game": [
         detect_rounds,
         detect_round_start,

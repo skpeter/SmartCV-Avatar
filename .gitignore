@@ -162,4 +162,3 @@ cython_debug/
 config.ini
 tags.csv
 dev/*
-!dev/validate_vod.py

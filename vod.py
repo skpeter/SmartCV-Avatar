@@ -5,7 +5,7 @@ capture, with frames coming from a file instead of OBS or the game window.
 Useful for exercising a client integration without running a match, and for
 watching the detector work against known footage.
 
-For calibration and regression checking use dev/validate_vod.py instead,
+For calibration and regression checking use core/validate_vod.py instead,
 which drives the detectors directly and prints a timeline.
 
 Usage (from repo root):
