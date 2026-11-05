@@ -227,7 +227,7 @@ def _stable_markers(img, scale_x, scale_y):
         _marker_streak[0] = reading
         _marker_streak[1] = 1
     if _debug():
-        print("Round markers:", reading, "streak", _marker_streak[1])
+        core.print_with_time("Round markers:", reading, "streak", _marker_streak[1], debug_only=True)
     return reading if _marker_streak[1] >= MARKER_STREAK else None
 
 
@@ -235,7 +235,7 @@ def _health_full(img, scale_x, scale_y):
     p1 = _region_mean(img, HP_P1, scale_x, scale_y)
     p2 = _region_mean(img, HP_P2, scale_x, scale_y)
     if _debug():
-        print("Health tip means:", p1, p2)
+        core.print_with_time("Health tip means:", p1, p2, debug_only=True)
     p1_full = p1[0] > 90 and (p1[0] - p1[1]) > 50
     p2_full = p2[2] > 120 and (p2[2] - p2[0]) > 40
     return p1_full and p2_full
@@ -320,7 +320,7 @@ def detect_player_tags(payload, img, scale_x, scale_y):
             continue
         tag = " ".join(result).strip()
         if _debug():
-            print(f"Player tag {i + 1} OCR:", result, "->", tag)
+            core.print_with_time(f"Player tag {i + 1} OCR:", result, "->", tag, debug_only=True)
         # PING sits above the bar; reject it if a crop ever catches it.
         if not tag or tag.upper().startswith("PING"):
             continue
@@ -348,7 +348,7 @@ def detect_characters(payload, img, scale_x, scale_y):
             continue
         match, score = findBestMatch(" ".join(result), avatar.characters)
         if _debug():
-            print(f"Nameplate {i + 1} OCR:", result, "->", match, round(score, 3))
+            core.print_with_time(f"Nameplate {i + 1} OCR:", result, "->", match, round(score, 3), debug_only=True)
         if not match or score < CHAR_MIN_SCORE or score <= _char_scores[i]:
             continue
         _char_scores[i] = score
@@ -437,7 +437,7 @@ def detect_results(payload, img, scale_x, scale_y):
     red = _region_mean(img, RES_RED, scale_x, scale_y)
     blue = _region_mean(img, RES_BLUE, scale_x, scale_y)
     if _debug():
-        print("Results brush means:", red, blue)
+        core.print_with_time("Results brush means:", red, blue, debug_only=True)
     if not (
         core.is_within_deviation(red, RES_RED_COLOR, RES_DEV)
         and core.is_within_deviation(blue, RES_BLUE_COLOR, RES_DEV)
